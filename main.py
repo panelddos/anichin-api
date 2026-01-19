@@ -27,24 +27,27 @@ CORS(app)
 @app.get("/")
 def read_root() -> Tuple[Dict[str, Any], int]:
     """
-    Get home page (Ambil 2 halaman sekaligus agar data jadi 10)
+    Mengambil data dari halaman 1 dan 2 untuk mendapatkan total 10 donghua.
     """
     try:
         # 1. Ambil data Halaman 1
-        result_pg1 = main.get_home(1)
-        data_pg1 = result_pg1.get("results", [])
+        res1 = main.get_home(1)
+        # Pastikan kita mengambil list dari key 'results' atau 'result'
+        data1 = res1.get("results") or res1.get("result") or []
 
         # 2. Ambil data Halaman 2
-        result_pg2 = main.get_home(2)
-        data_pg2 = result_pg2.get("results", [])
+        res2 = main.get_home(2)
+        data2 = res2.get("results") or res2.get("result") or []
 
-        # 3. Gabungkan data (5 dari pg1 + 5 dari pg2 = 10)
-        combined_data = data_pg1 + data_pg2
+        # 3. Gabungkan data
+        combined_results = data1 + data2
 
-        # 4. Kembalikan hasil yang sudah digabung
+        logger.info(f"Combined data: {len(combined_results)} items found.")
+
+        # 4. Kembalikan JSON dengan format yang konsisten
         return jsonify({
             "status": "success",
-            "results": combined_data
+            "results": combined_results
         }), 200
 
     except Exception as err:
