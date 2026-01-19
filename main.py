@@ -27,18 +27,22 @@ CORS(app)
 @app.get("/")
 def read_root():
     try:
-        # Panggil page 1 dan page 2
-        p1 = main.get_home(1)
-        p2 = main.get_home(2)
+        # Mengambil data dari halaman 1 dan 2
+        res1 = main.get_home(1)
+        res2 = main.get_home(2)
         
-        # Ambil list datanya (asumsi key-nya adalah 'results')
-        d1 = p1.get("results") or p1.get("result") or []
-        d2 = p2.get("results") or p2.get("result") or []
+        # Ambil list-nya (biasanya di dalam key 'results')
+        data1 = res1.get("results", [])
+        data2 = res2.get("results", [])
         
-        # Gabungkan hasil keduanya
-        return jsonify({"results": d1 + d2}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Gabungkan (5 + 5 = 10)
+        combined = data1 + data2
+        
+        return jsonify({"results": combined}), 200
+    except Exception as err:
+        logger.error(f"Error in read_root: {err}")
+        # Menggunakan format asli Anda yang sudah benar
+        return jsonify(message=str(err)), 500
 
 
 @app.get("/search/<query>")
