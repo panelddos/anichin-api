@@ -27,22 +27,25 @@ CORS(app)
 @app.get("/")
 def read_root() -> Tuple[Dict[str, Any], int]:
     """
-    Get home page
-    params: page (optional) - int
-    return: JSON
+    Get home page (Ambil 2 halaman sekaligus agar data jadi 10)
     """
     try:
-        page = request.args.get("page")
-        logger.info(f"Home page request with page: {page}")
+        # 1. Ambil data Halaman 1
+        result_pg1 = main.get_home(1)
+        data_pg1 = result_pg1.get("results", [])
 
-        if page and not page.isdigit():
-            logger.warning(f"Invalid page parameter: {page}")
-            return jsonify(message="Page parameter must be a number"), 400
+        # 2. Ambil data Halaman 2
+        result_pg2 = main.get_home(2)
+        data_pg2 = result_pg2.get("results", [])
 
-        page_num = int(page) if page else 1
-        result = main.get_home(page_num)
-        logger.info(f"Successfully served home page {page_num}")
-        return result, 200
+        # 3. Gabungkan data (5 dari pg1 + 5 dari pg2 = 10)
+        combined_data = data_pg1 + data_pg2
+
+        # 4. Kembalikan hasil yang sudah digabung
+        return jsonify({
+            "status": "success",
+            "results": combined_data
+        }), 200
 
     except Exception as err:
         logger.error(f"Error in read_root: {err}")
