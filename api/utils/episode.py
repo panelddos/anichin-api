@@ -449,17 +449,14 @@ class Episode(Parsing):
             episodes = self.__get_episodes(data)
             root = self.__get_root(data)
 
-            # Combine all information
+            # Cari baris ini di bagian bawah file episode.py Anda
             result_info = {
-                **info_details,
                 "name": name,
-                "genre": genres,
-                "rating": rating,
-                "sinopsis": sinopsis,
                 "thumbnail": thumbnail,
-                "episode": episodes,
-                "players": player_list,
-                "root": root,
+                "players": self.__get_video(data), # Memastikan fungsi di atas dipanggil
+                "episodes": self.__get_episodes(data), # Memastikan list episode terbaca
+                "slug": self.slug,
+                "status": "Success"
             }
 
             result = {"result": result_info, "source": self.history_url}
