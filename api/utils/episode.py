@@ -389,7 +389,7 @@ class Episode(Parsing):
 
             return videos if videos else {"error": "Video not found"}
         except Exception as e:
-            return {"error": str(e)}}
+            return {"error": str(e)}
 
     def __bs64(self, data: str, name: str = "") -> Optional[Dict[str, str]]:
         """Decode base64 video data safely."""
