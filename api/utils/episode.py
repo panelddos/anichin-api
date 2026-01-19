@@ -350,49 +350,46 @@ class Episode(Parsing):
                 return ""
         except Exception as e:
             logger.error(f"Error executing JavaScript code: {e}")
-            return ""
-
-    def __get_video(
-        self, data: BeautifulSoup
-    ) -> Union[List[Dict[str, str]], Dict[str, str]]:
-        """Extract video sources from the content."""
+            return 
+            
+    def __get_video(self, data: BeautifulSoup) -> Union[List[Dict[str, str]], Dict[str, str]]:
+        """Mengekstrak daftar server video dari mirror selector atau iframe."""
+        videos = []
         try:
-            scripts = data.find_all("script")
-            script_elements = [
-                script
-                for script in scripts
-                if "document.write(decodeURIComponent(escape(" in script.text
-            ]
-
-            if script_elements:
-                script_text = script_elements[0].text
-                decoded_data = self.__execute_javascript_code(script_text)
-                if decoded_data:
-                    parsed_data = self.parsing(decoded_data)
-                    if parsed_data:
-                        data = parsed_data
-
+            # 1. Cari di selector 'mirror' (Sering digunakan Anichin)
             video_select = data.find("select", {"name": "mirror"})
             if video_select:
                 options = video_select.find_all("option")
-                videos = []
                 for option in options:
                     value = option.get("value")
-                    text = option.text
-                    if value:
-                        video_info = self.__bs64(value, text)
-                        if video_info:
-                            videos.append(video_info)
+                    name = option.text.strip()
+                    if value and value != "0":
+                        try:
+                            # Coba decode jika nilainya Base64 (Rahasia Anichin 2026)
+                            decoded = b64decode(value).decode("utf-8")
+                            if "<iframe" in decoded:
+                                soup_iframe = BeautifulSoup(decoded, "html.parser")
+                                if_tag = soup_iframe.find("iframe")
+                                if if_tag:
+                                    src = if_tag.get("src")
+                                    videos.append({"name": name, "url": src if "http" in src else "https:" + src})
+                            else:
+                                if "http" in value or value.startswith("//"):
+                                    videos.append({"name": name, "url": value if "http" in value else "https:" + value})
+                        except:
+                            if "http" in value or value.startswith("//"):
+                                videos.append({"name": name, "url": value if "http" in value else "https:" + value})
 
-                logger.info(f"Found {len(videos)} video sources")
-                return videos
-            else:
-                logger.warning("Video select element not found")
-                return {"error": "Video not found"}
+            # 2. Jika Strategi 1 Gagal, ambil iframe apa saja yang ada di halaman
+            if not videos:
+                iframe = data.find("iframe", src=True)
+                if iframe:
+                    src = iframe["src"]
+                    videos.append({"name": "Server Utama", "url": src if "http" in src else "https:" + src})
 
+            return videos if videos else {"error": "Video not found"}
         except Exception as e:
-            logger.error(f"Error extracting video sources: {e}")
-            return {"error": f"Video extraction failed: {str(e)}"}
+            return {"error": str(e)}}
 
     def __bs64(self, data: str, name: str = "") -> Optional[Dict[str, str]]:
         """Decode base64 video data safely."""
