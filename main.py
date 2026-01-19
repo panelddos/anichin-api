@@ -27,21 +27,37 @@ CORS(app)
 @app.get("/")
 def read_root():
     try:
-        # Mengambil data dari halaman 1 dan 2
-        res1 = main.get_home(1)
-        res2 = main.get_home(2)
-        
-        # Ambil list-nya (biasanya di dalam key 'results')
-        data1 = res1.get("results", [])
-        data2 = res2.get("results", [])
-        
-        # Gabungkan (5 + 5 = 10)
-        combined = data1 + data2
-        
-        return jsonify({"results": combined}), 200
+        # 1. Ambil data dari Halaman Utama (Update Terbaru)
+        res_home = main.get_home(1)
+        home_items = []
+        # Mengambil list 'cards' dari hasil home
+        if isinstance(res_home.get("results"), list) and len(res_home["results"]) > 0:
+            home_items = res_home["results"][0].get("cards", [])
+        else:
+            home_items = res_home.get("results", [])
+
+        # 2. Ambil data dari Daftar Anime (/anime)
+        res_anime = main.anime()
+        anime_items = []
+        if isinstance(res_anime, list):
+            anime_items = res_anime
+        elif isinstance(res_anime, dict):
+            anime_items = res_anime.get("results") or res_anime.get("result") or []
+
+        # 3. Gabungkan & Hapus Duplikat berdasarkan slug
+        combined = home_items + anime_items
+        unique_data = []
+        seen = set()
+        for item in combined:
+            slug = item.get("slug")
+            if slug and slug not in seen:
+                unique_data.append(item)
+                seen.add(slug)
+
+        # 4. Kirim hasil gabungan (Hasilnya akan jadi banyak)
+        return jsonify({"results": unique_data}), 200
     except Exception as err:
-        logger.error(f"Error in read_root: {err}")
-        # Menggunakan format asli Anda yang sudah benar
+        logger.error(f"Error di read_root: {err}")
         return jsonify(message=str(err)), 500
 
 
