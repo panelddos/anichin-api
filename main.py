@@ -25,25 +25,19 @@ CORS(app)
 
 
 @app.get("/")
-def read_root() -> Tuple[Dict[str, Any], int]:
+def read_root():
     try:
-        # Ambil halaman 1 dan 2
-        res1 = main.get_home(1)
-        res2 = main.get_home(2)
+        # Panggil page 1 dan page 2
+        p1 = main.get_home(1)
+        p2 = main.get_home(2)
         
-        # Ambil data dari results (pastikan key-nya benar)
-        data1 = res1.get("results") or res1.get("result") or []
-        data2 = res2.get("results") or res2.get("result") or []
+        # Ambil list datanya (asumsi key-nya adalah 'results')
+        d1 = p1.get("results") or p1.get("result") or []
+        d2 = p2.get("results") or p2.get("result") or []
         
-        # Gabungkan 5 + 5 = 10
-        combined = data1 + data2
-        
-        return jsonify({
-            "status": "success",
-            "results": combined
-        }), 200
+        # Gabungkan hasil keduanya
+        return jsonify({"results": d1 + d2}), 200
     except Exception as e:
-        logger.error(f"Error in read_root: {e}")
         return jsonify({"error": str(e)}), 500
 
 
