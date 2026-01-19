@@ -26,33 +26,25 @@ CORS(app)
 
 @app.get("/")
 def read_root() -> Tuple[Dict[str, Any], int]:
-    """
-    Mengambil data dari halaman 1 dan 2 untuk mendapatkan total 10 donghua.
-    """
     try:
-        # 1. Ambil data Halaman 1
+        # Ambil halaman 1 dan 2
         res1 = main.get_home(1)
-        # Pastikan kita mengambil list dari key 'results' atau 'result'
-        data1 = res1.get("results") or res1.get("result") or []
-
-        # 2. Ambil data Halaman 2
         res2 = main.get_home(2)
+        
+        # Ambil data dari results (pastikan key-nya benar)
+        data1 = res1.get("results") or res1.get("result") or []
         data2 = res2.get("results") or res2.get("result") or []
-
-        # 3. Gabungkan data
-        combined_results = data1 + data2
-
-        logger.info(f"Combined data: {len(combined_results)} items found.")
-
-        # 4. Kembalikan JSON dengan format yang konsisten
+        
+        # Gabungkan 5 + 5 = 10
+        combined = data1 + data2
+        
         return jsonify({
             "status": "success",
-            "results": combined_results
+            "results": combined
         }), 200
-
-    except Exception as err:
-        logger.error(f"Error in read_root: {err}")
-        return jsonify(message=str(err)), 500
+    except Exception as e:
+        logger.error(f"Error in read_root: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.get("/search/<query>")
