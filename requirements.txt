@@ -4,4 +4,4 @@ python-dotenv
 flask
 flask-cors
 gunicorn
-cloudscraper
+cloudscraper==1.2.71
