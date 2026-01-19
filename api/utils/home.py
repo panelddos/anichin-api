@@ -5,193 +5,92 @@ import logging
 from typing import Dict, List, Optional, Any, Union
 from bs4 import BeautifulSoup, Tag
 
-# Configure logging
 logger = logging.getLogger(__name__)
-
 
 class Home(Parsing):
     def __init__(self, page: int = 1) -> None:
         super().__init__()
         self.__page: int = page
-        logger.info(f"Initialized Home scraper for page: {page}")
 
-    def __get_card(self, item: Tag) -> Optional[Dict[str, Union[str, int, None]]]:
-        """Extract card information from a home page item."""
+    def __get_card(self, item: Tag) -> Optional[Dict[str, Any]]:
+        """Ekstrak data anime dari setiap elemen list."""
         try:
-            # Extract title
-            title_div = item.find("div", {"class": "tt"})
-            if not title_div:
-                logger.warning("Title div not found in home item")
-                return None
+            # Selector terbaru Anichin menggunakan class 'bsx' atau langsung tag 'a'
+            link_tag = item.find("a", href=True)
+            if not link_tag: return None
 
-            # Extract headline
-            headline_element = title_div.find("h2")
-            headline = headline_element.text.strip() if headline_element else "Unknown"
+            url = link_tag["href"]
+            title = link_tag.get("title") or item.find("h2").text.strip()
+            
+            # Thumbnail (menangani lazy load)
+            img_tag = item.find("img")
+            thumbnail = img_tag.get("data-src") or img_tag.get("src") if img_tag else ""
 
-            # Clean title by removing child elements
-            for child in title_div.find_all():
-                child.extract()
-            title = title_div.text.strip() if title_div.text else "Unknown Title"
+            # Episode & Type
+            eps_tag = item.find("span", class_="epx")
+            eps = eps_tag.text.strip() if eps_tag else "0"
+            
+            type_tag = item.find("span", class_="typez")
+            anime_type = type_tag.text.strip() if type_tag else "Unknown"
 
-            # Extract type
-            type_div = item.find("div", {"class": "typez"})
-            anime_type = type_div.text.strip() if type_div else "Unknown"
+            # Ambil slug dari URL
+            slug = url.strip("/").split("/")[-1]
 
-            # Extract episode count
-            eps_span = item.find("span", {"class": "epx"})
-            eps = None
-            if eps_span:
-                eps_text = eps_span.text.strip()
-                eps_numbers = re.sub("[^0-9]", "", eps_text)
-                eps = int(eps_numbers) if eps_numbers else None
-
-            # Extract thumbnail
-            thumbnail_img = item.find("img", {"src": True})
-            thumbnail = ""
-            if thumbnail_img:
-                thumbnail = (
-                    thumbnail_img.get("data-lazy-src") or thumbnail_img.get("src") or ""
-                )
-
-            # Extract URL and slug
-            url_link = item.find("a", {"title": True})
-            if not url_link or not url_link.get("href"):
-                logger.warning("URL link not found in home item")
-                return None
-
-            url = url_link.get("href")
-            slug_path = urlparse(url).path
-            slug = (
-                slug_path.split("/")[-2]
-                if slug_path.endswith("/")
-                else slug_path.split("/")[-1]
-            )
-
-            card_data = {
+            return {
                 "title": title,
                 "type": anime_type,
-                "headline": headline,
                 "eps": eps,
                 "thumbnail": thumbnail,
                 "slug": slug,
+                "url": url
             }
-
-            logger.debug(f"Successfully extracted card data for: {title}")
-            return card_data
-
         except Exception as e:
-            logger.error(f"Error extracting card data: {e}")
+            logger.error(f"Error parse card: {e}")
             return None
 
-    def __get_home(
-        self, data: BeautifulSoup
-    ) -> Dict[str, Union[List[Dict[str, Any]], int, str]]:
-        """Extract home page content from the data."""
+    def __get_home(self, data: BeautifulSoup) -> Dict[str, Any]:
+        """Mencari container utama pembungkus list anime."""
         cards = []
         try:
-            content_sections = data.find_all("div", {"class": "bixbox bbnofrm"})
-            logger.info(f"Found {len(content_sections)} sections in home page")
+            # Anichin terbaru menggunakan class 'listupd' untuk daftar update terbaru
+            container = data.find("div", class_="listupd")
+            if not container:
+                # Fallback ke bixbox jika di halaman tertentu berbeda
+                container = data.find("div", class_="bixbox")
 
-            for section in content_sections:
-                try:
-                    # Extract section name
-                    releases_div = section.find("div", "releases")
-                    if releases_div:
-                        section_element = releases_div.find()
-                        section_name = (
-                            section_element.text.lower().replace(" ", "_")
-                            if section_element
-                            else "unknown"
-                        )
-                    else:
-                        section_name = "unknown"
+            if container:
+                # Setiap anime biasanya dibungkus dalam class 'utimes', 'bs', atau 'article'
+                items = container.find_all(["div", "article"], class_=["utimes", "bs", "bsx"])
+                
+                section_items = []
+                for item in items:
+                    card = self.__get_card(item)
+                    if card:
+                        section_items.append(card)
+                
+                if section_items:
+                    cards.append({"section": "latest_update", "cards": section_items})
 
-                    # Extract articles
-                    articles = section.find_all("article")
-                    section_items = []
-
-                    for article in articles:
-                        try:
-                            card = self.__get_card(article)
-                            if card:
-                                section_items.append(card)
-                        except Exception as card_error:
-                            logger.error(
-                                f"Error processing article in section {section_name}: {card_error}"
-                            )
-                            continue
-
-                    if section_items:
-                        cards.append({"section": section_name, "cards": section_items})
-                        logger.debug(
-                            f"Added section '{section_name}' with {len(section_items)} items"
-                        )
-
-                except Exception as section_error:
-                    logger.error(f"Error processing section: {section_error}")
-                    continue
-
-            result = {
+            return {
                 "results": cards,
                 "page": self.__page,
-                "total": len(cards),
+                "total": len(cards[0]["cards"]) if cards else 0,
                 "source": self.history_url,
             }
-
-            logger.info(
-                f"Successfully processed {len(cards)} sections for page {self.__page}"
-            )
-            return result
 
         except Exception as e:
-            logger.error(f"Error extracting home page content: {e}")
-            return {
-                "results": [],
-                "page": self.__page,
-                "total": 0,
-                "source": self.history_url,
-                "error": str(e),
-            }
+            logger.error(f"Error home content: {e}")
+            return {"results": [], "error": str(e)}
 
-    def get_details(self) -> Dict[str, Union[List[Dict[str, Any]], int, str]]:
-        """Get home page details."""
+    def get_details(self) -> Dict[str, Any]:
         try:
-            logger.info(f"Starting to fetch home page for page: {self.__page}")
-
-            url = ""
-            if self.__page > 1:
-                url = f"/page/{self.__page}/"
-
+            # Jika halaman 1, url kosong (base url), jika > 1 gunakan path /page/
+            url = f"/page/{self.__page}/" if self.__page > 1 else "/"
+            
             data = self.get_parsed_html(url)
             if not data:
-                logger.error("Failed to get home page data")
-                return {
-                    "results": [],
-                    "page": self.__page,
-                    "total": 0,
-                    "source": self.history_url,
-                    "error": "Failed to fetch home page",
-                }
+                return {"results": [], "error": "Failed to fetch HTML"}
 
             return self.__get_home(data)
-
         except Exception as e:
-            logger.error(f"Error in get_details for page {self.__page}: {e}")
-            return {
-                "results": [],
-                "page": self.__page,
-                "total": 0,
-                "source": self.history_url,
-                "error": str(e),
-            }
-
-
-if __name__ == "__main__":
-    # Configure logging for testing
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-    home = Home(1)
-    print(home.get_details())
+            return {"results": [], "error": str(e)}
